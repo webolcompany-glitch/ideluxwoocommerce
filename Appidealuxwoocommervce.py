@@ -235,7 +235,7 @@ if file:
     for _, row in df.iterrows():
 
         sku = safe(row["Nr"])
-        name = build_short_desc(row).title()
+        name = f"Ideal Lux {build_short_desc(row).title()}"
 
         short = build_short_desc(row)
         desc = build_description(row)
