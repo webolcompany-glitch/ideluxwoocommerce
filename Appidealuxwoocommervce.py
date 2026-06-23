@@ -2,13 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
+import csv
 
-st.set_page_config(page_title="WooCommerce Product Generator", layout="wide")
+st.set_page_config(page_title="WooCommerce Generator", layout="wide")
 st.title("🛒 WooCommerce Product Generator")
 
-# -------------------------
-# UPLOAD FILE
-# -------------------------
 file = st.file_uploader("Carica file CSV o Excel", type=["csv", "xlsx"])
 
 # -------------------------
@@ -20,7 +18,7 @@ def safe(val):
     return str(val).strip()
 
 def clean_join(parts):
-    return " ".join([p for p in parts if p and str(p).strip() != ""]).strip()
+    return " ".join([p for p in parts if p]).strip()
 
 def clean_lower_tags(parts):
     seen = set()
@@ -28,7 +26,7 @@ def clean_lower_tags(parts):
     for p in parts:
         if p:
             t = str(p).strip().lower()
-            if t and t not in seen:
+            if t not in seen:
                 seen.add(t)
                 out.append(t)
     return ", ".join(out)
@@ -36,8 +34,13 @@ def clean_lower_tags(parts):
 def extract_color_temp(text):
     if not text:
         return ""
-    match = re.search(r"\d{3,5}K", str(text))
-    return match.group(0) if match else ""
+    m = re.search(r"\d{3,5}K", str(text))
+    return m.group(0) if m else ""
+
+# -------------------------
+# BRAND
+# -------------------------
+BRAND = "Ideal Lux"
 
 # -------------------------
 # SHORT DESCRIPTION
@@ -56,8 +59,6 @@ def build_short_desc(row):
     dimmer = safe(row.get("Dimmer", ""))
     luci = safe(row["Luci"])
 
-    color_temp = extract_color_temp(row.get("Descrizione", ""))
-
     feat = ""
 
     if watt:
@@ -68,9 +69,6 @@ def build_short_desc(row):
         feat = "dimmerabile"
     elif luci and luci != "0":
         feat = f"{luci} luci"
-
-    if color_temp:
-        feat = f"{feat} {color_temp}".strip()
 
     identity = color or fin or mat
 
@@ -84,7 +82,6 @@ def build_short_desc(row):
 
     short = clean_join(parts)
 
-    # Lampadina inclusa
     lamp = safe(row.get("LampadinaInclusa", "")).lower()
     if lamp in ["si", "sì", "yes"]:
         short += " lampadina inclusa"
@@ -92,11 +89,11 @@ def build_short_desc(row):
     return short
 
 # -------------------------
-# DESCRIPTION (SEMPLIFICATA)
+# DESCRIPTION TEXT
 # -------------------------
-def build_description(row):
+def build_description_text(row):
 
-    base = safe(row["Descrizione"])   # 🔥 SOLO DESCRIZIONE
+    base = safe(row["Descrizione"])
 
     parts = [base]
 
@@ -138,20 +135,65 @@ def build_description(row):
     return clean_join(parts)
 
 # -------------------------
-# TAGS
+# TABLE HTML
 # -------------------------
-def build_tags(row):
-    return clean_lower_tags([
-        row["Categoria Articolo"],
-        row["Famiglia Articolo"],
-        row["Gruppo Prodotto"],
-        row["Materiale"],
-        row["Finitura"],
-        row["Colore Rosone"],
-        row["Attacco Portalampada"],
-        row["Watt"],
-        row["IP"]
-    ])
+def build_attributes_table(row):
+
+    fields = [
+        ("Dimensione Articolo", "Dimensione"),
+        ("EAN", "EAN"),
+        ("Pezzi Per Scatola", "Pezzi Per Scatola"),
+        ("Attacco Portalampada", "Attacco"),
+        ("Luci", "Luci"),
+        ("Volt", "Volt"),
+        ("Watt", "Watt"),
+        ("IP", "IP"),
+        ("Classe", "Classe"),
+        ("Materiale", "Materiale"),
+        ("Finitura", "Finitura"),
+        ("Colore Rosone", "Colore Rosone")
+    ]
+
+    html = """
+    <div style="margin-top:20px;">
+    <h3 style="color:#333;">Descrizione tecnica</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;color:#333;">
+    """
+
+    for k, label in fields:
+        val = safe(row.get(k, ""))
+        if val:
+            html += f"""
+            <tr style="border-bottom:1px solid #ddd;">
+                <td style="padding:8px;background:#f5f5f5;font-weight:600;">{label}</td>
+                <td style="padding:8px;">{val}</td>
+            </tr>
+            """
+
+    html += "</table></div>"
+    return html
+
+# -------------------------
+# FINAL DESCRIPTION HTML
+# -------------------------
+def build_description_html(row, text, table):
+
+    img = safe(row["Indirizzo Immagine"])
+
+    html = f"""
+<div>
+
+    <div style="border:1px solid #ddd;padding:15px;background:#f9f9f9;color:#333;border-radius:6px;margin-bottom:15px;">
+        {text}
+    </div>
+
+    {"<div style='text-align:center;margin-bottom:15px;'><img src='" + img + "' style='max-width:700px;width:100%;border-radius:6px;border:1px solid #ddd;'></div>" if img else ""}
+
+    {table}
+
+</div>
+"""
+    return html
 
 # -------------------------
 # ATTRIBUTES
@@ -161,11 +203,7 @@ def build_attributes(row):
     mapping = {
         "Attacco Portalampada": "Attacco",
         "Luci": "Luci",
-        "Reattore": "Reattore",
-        "Trasformatore": "Trasformatore",
         "Volt": "Volt",
-        "Peso Netto": "Peso",
-        "Peso Lordo": "Peso Lordo",
         "Watt": "Potenza",
         "IP": "IP",
         "Classe": "Classe energetica",
@@ -188,101 +226,72 @@ def build_attributes(row):
             })
             i += 1
 
-    # Temperatura colore
-    color_temp = extract_color_temp(row.get("Descrizione", ""))
-    if color_temp:
-        attrs.append({
-            f"Attribute {i} name": "Temperatura Colore",
-            f"Attribute {i} value(s)": color_temp,
-            f"Attribute {i} visible": 1,
-            f"Attribute {i} global": 1
-        })
-        i += 1
-
-    # Lampadina inclusa
-    lamp = safe(row.get("LampadinaInclusa", "")).lower()
-    if lamp in ["si", "sì", "yes"]:
-        attrs.append({
-            f"Attribute {i} name": "Lampadina inclusa",
-            f"Attribute {i} value(s)": "Si",
-            f"Attribute {i} visible": 1,
-            f"Attribute {i} global": 1
-        })
-
     return attrs
 
 # -------------------------
-# IMAGES
-# -------------------------
-def build_images(row):
-    return safe(row["Indirizzo Immagine"])
-
-# -------------------------
-# PROCESS MAIN
+# MAIN
 # -------------------------
 if file:
 
-    if file.name.endswith(".csv"):
-        df = pd.read_csv(file)
-    else:
-        df = pd.read_excel(file)
+    df = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
 
-    st.write("📊 Anteprima dati")
-    st.dataframe(df.head())
-
-    output_rows = []
+    output = []
 
     for _, row in df.iterrows():
 
         sku = safe(row["Nr"])
-        name = f"Ideal Lux {build_short_desc(row).title()}"
+
+        name = f"{BRAND} {build_short_desc(row)}".title()
 
         short = build_short_desc(row)
-        desc = build_description(row)
-        tags = build_tags(row)
-        img = build_images(row)
+        desc_text = build_description_text(row)
+        table = build_attributes_table(row)
+        description = build_description_html(row, desc_text, table)
 
-        # SHORT HTML + documenti
         short_html = short
-
-        scheda = safe(row["Indirizzo Scheda Tecnica"])
-        cert = safe(row["Indirizzo Certificazione"])
-
-        if scheda or cert:
-            short_html += "<br><b>Specifiche tecniche:</b><ul>"
-            if scheda:
-                short_html += f'<li><a href="{scheda}" target="_blank">Scheda tecnica prodotto</a></li>'
-            if cert:
-                short_html += f'<li><a href="{cert}" target="_blank">Scheda sicurezza</a></li>'
-            short_html += "</ul>"
 
         base = {
             "SKU": sku,
             "Name": name,
             "Categories": safe(row["Categoria Articolo"]),
-            "Tags": tags,
+            "Tags": clean_lower_tags([
+                row["Categoria Articolo"],
+                row["Famiglia Articolo"],
+                row["Materiale"],
+                row["Finitura"],
+                row["Attacco Portalampada"]
+            ]),
             "Short description": short_html,
-            "Description": desc,
+            "Description": description,
             "Stock": safe(row["Magazzino"]),
-            "Images": img,
+            "Images": safe(row["Indirizzo Immagine"]),
             "PREZZO_LISTINO": safe(row["Prezzo Al Pubblico"]),
             "PREZZO_IN_OFFERTA": ""
         }
 
         attrs = build_attributes(row)
-
         for a in attrs:
             base.update(a)
 
-        output_rows.append(base)
+        output.append(base)
 
-    out_df = pd.DataFrame(output_rows)
+    out_df = pd.DataFrame(output)
 
-    st.success("✔ CSV WooCommerce generato correttamente")
+    # ORDINE COLONNE FISSO
+    base_cols = [
+        "SKU","Name","Categories","Tags","Short description",
+        "Description","Stock","Images","PREZZO_LISTINO","PREZZO_IN_OFFERTA"
+    ]
+
+    attr_cols = [c for c in out_df.columns if c not in base_cols]
+
+    out_df = out_df[base_cols + attr_cols]
+
+    st.success("Export completato")
 
     st.dataframe(out_df.head())
 
-    csv = out_df.to_csv(index=False).encode("utf-8")
+    csv = out_df.to_csv(index=False, encoding="utf-8", quoting=csv.QUOTE_ALL)
 
     st.download_button(
         "📥 Scarica CSV WooCommerce",
