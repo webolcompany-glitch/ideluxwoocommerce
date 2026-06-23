@@ -4,7 +4,6 @@ import numpy as np
 import re
 
 st.set_page_config(page_title="WooCommerce Product Generator", layout="wide")
-
 st.title("🛒 WooCommerce Product Generator")
 
 # -------------------------
@@ -93,17 +92,11 @@ def build_short_desc(row):
     return short
 
 # -------------------------
-# DESCRIPTION
+# DESCRIPTION (SEMPLIFICATA)
 # -------------------------
 def build_description(row):
 
-    desc2 = safe(row["Descrizione 2"])
-    desc = safe(row["Descrizione"])
-
-    if desc2 == desc:
-        base = desc2
-    else:
-        base = clean_join([desc2, desc])
+    base = safe(row["Descrizione"])   # 🔥 SOLO DESCRIZIONE
 
     parts = [base]
 
@@ -219,13 +212,13 @@ def build_attributes(row):
     return attrs
 
 # -------------------------
-# IMAGES / STOCK / PRICE
+# IMAGES
 # -------------------------
 def build_images(row):
     return safe(row["Indirizzo Immagine"])
 
 # -------------------------
-# PROCESS
+# PROCESS MAIN
 # -------------------------
 if file:
 
@@ -249,20 +242,18 @@ if file:
         tags = build_tags(row)
         img = build_images(row)
 
-        lamp = safe(row.get("LampadinaInclusa", "")).lower()
-
+        # SHORT HTML + documenti
         short_html = short
 
-        # SHORT HTML + eventuali documenti
         scheda = safe(row["Indirizzo Scheda Tecnica"])
         cert = safe(row["Indirizzo Certificazione"])
 
         if scheda or cert:
             short_html += "<br><b>Specifiche tecniche:</b><ul>"
             if scheda:
-                short_html += f'<li><a href="{scheda}" target="_blank" rel="noopener">Scheda tecnica prodotto (PDF)</a></li>'
+                short_html += f'<li><a href="{scheda}" target="_blank">Scheda tecnica prodotto</a></li>'
             if cert:
-                short_html += f'<li><a href="{cert}" target="_blank" rel="noopener">Scheda sicurezza (PDF)</a></li>'
+                short_html += f'<li><a href="{cert}" target="_blank">Scheda sicurezza</a></li>'
             short_html += "</ul>"
 
         base = {
@@ -287,7 +278,7 @@ if file:
 
     out_df = pd.DataFrame(output_rows)
 
-    st.success("✔ File WooCommerce generato con successo")
+    st.success("✔ CSV WooCommerce generato correttamente")
 
     st.dataframe(out_df.head())
 
