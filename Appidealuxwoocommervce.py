@@ -40,6 +40,63 @@ def extract_color_temp(text):
     return match.group(0) if match else ""
 
 # -------------------------
+# TABELLA TECNICA (STILE NEUTRO GRIGIO SCURO)
+# -------------------------
+def build_attributes_table(row):
+
+    fields = [
+        ("Dimensione Articolo", "Dimensione Articolo"),
+        ("Pezzi Per Scatola", "Pezzi Per Scatola"),
+        ("EAN", "EAN"),
+        ("Dimensione Base Attacco Rosone", "Base Attacco Rosone"),
+        ("Dimensione Corpo", "Dimensione Corpo"),
+        ("Dimensione Paralume Vetro", "Paralume Vetro"),
+        ("Dimmer", "Dimmer"),
+        ("Lampadina Inclusa", "Lampadina Inclusa"),
+        ("Kit Fissaggio", "Kit Fissaggio"),
+        ("Attacco Portalampada", "Attacco"),
+        ("Luci", "Luci"),
+        ("Volt", "Volt"),
+        ("Watt", "Watt"),
+        ("IP", "IP"),
+        ("Classe", "Classe"),
+        ("Materiale", "Materiale"),
+        ("Finitura", "Finitura"),
+        ("Colore Rosone", "Colore Rosone")
+    ]
+
+    html = """
+    <br><br>
+    <div style="margin-top:20px;">
+    <h3 style="color:#333; font-size:16px; margin-bottom:10px;">Descrizione tecnica</h3>
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:14px;
+        color:#333;
+        font-family:Arial, sans-serif;
+    ">
+    """
+
+    for key, label in fields:
+        val = safe(row.get(key, ""))
+        if val:
+            html += f"""
+            <tr style="border-bottom:1px solid #ddd;">
+                <td style="padding:8px; font-weight:600; width:40%; background:#f7f7f7;">
+                    {label}
+                </td>
+                <td style="padding:8px;">
+                    {val}
+                </td>
+            </tr>
+            """
+
+    html += "</table></div>"
+
+    return html
+
+# -------------------------
 # SHORT DESCRIPTION
 # -------------------------
 def build_short_desc(row):
@@ -84,7 +141,6 @@ def build_short_desc(row):
 
     short = clean_join(parts)
 
-    # Lampadina inclusa
     lamp = safe(row.get("LampadinaInclusa", "")).lower()
     if lamp in ["si", "sì", "yes"]:
         short += " lampadina inclusa"
@@ -92,11 +148,11 @@ def build_short_desc(row):
     return short
 
 # -------------------------
-# DESCRIPTION (SEMPLIFICATA)
+# DESCRIPTION (CON TABELLA SOTTO)
 # -------------------------
 def build_description(row):
 
-    base = safe(row["Descrizione"])   # 🔥 SOLO DESCRIZIONE
+    base = safe(row["Descrizione"])
 
     parts = [base]
 
@@ -134,6 +190,10 @@ def build_description(row):
     lamp = safe(row.get("LampadinaInclusa", "")).lower()
     if lamp in ["si", "sì", "yes"]:
         parts.append("lampadina inclusa")
+
+    # 🔥 TABELLA SOTTO DESCRIZIONE
+    table = build_attributes_table(row)
+    parts.append(table)
 
     return clean_join(parts)
 
@@ -188,7 +248,6 @@ def build_attributes(row):
             })
             i += 1
 
-    # Temperatura colore
     color_temp = extract_color_temp(row.get("Descrizione", ""))
     if color_temp:
         attrs.append({
@@ -197,9 +256,7 @@ def build_attributes(row):
             f"Attribute {i} visible": 1,
             f"Attribute {i} global": 1
         })
-        i += 1
 
-    # Lampadina inclusa
     lamp = safe(row.get("LampadinaInclusa", "")).lower()
     if lamp in ["si", "sì", "yes"]:
         attrs.append({
@@ -212,13 +269,13 @@ def build_attributes(row):
     return attrs
 
 # -------------------------
-# IMAGES
+# IMAGE
 # -------------------------
 def build_images(row):
     return safe(row["Indirizzo Immagine"])
 
 # -------------------------
-# PROCESS MAIN
+# MAIN
 # -------------------------
 if file:
 
@@ -242,7 +299,6 @@ if file:
         tags = build_tags(row)
         img = build_images(row)
 
-        # SHORT HTML + documenti
         short_html = short
 
         scheda = safe(row["Indirizzo Scheda Tecnica"])
@@ -251,7 +307,7 @@ if file:
         if scheda or cert:
             short_html += "<br><b>Specifiche tecniche:</b><ul>"
             if scheda:
-                short_html += f'<li><a href="{scheda}" target="_blank">Scheda tecnica prodotto</a></li>'
+                short_html += f'<li><a href="{scheda}" target="_blank">Scheda tecnica</a></li>'
             if cert:
                 short_html += f'<li><a href="{cert}" target="_blank">Scheda sicurezza</a></li>'
             short_html += "</ul>"
@@ -278,7 +334,7 @@ if file:
 
     out_df = pd.DataFrame(output_rows)
 
-    st.success("✔ CSV WooCommerce generato correttamente")
+    st.success("✔ Export WooCommerce completato")
 
     st.dataframe(out_df.head())
 
