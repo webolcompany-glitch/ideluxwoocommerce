@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import re
 
 st.set_page_config(page_title="WooCommerce Product Generator", layout="wide")
 
@@ -12,16 +13,14 @@ st.title("🛒 WooCommerce Product Generator")
 file = st.file_uploader("Carica file CSV o Excel", type=["csv", "xlsx"])
 
 # -------------------------
-# FUNZIONI UTILI
+# UTILS
 # -------------------------
-
 def safe(val):
     if pd.isna(val):
         return ""
     return str(val).strip()
 
 def clean_join(parts):
-    """Concatena evitando vuoti e doppioni di spazi"""
     return " ".join([p for p in parts if p and str(p).strip() != ""]).strip()
 
 def clean_lower_tags(parts):
@@ -35,29 +34,44 @@ def clean_lower_tags(parts):
                 out.append(t)
     return ", ".join(out)
 
+def extract_color_temp(text):
+    if not text:
+        return ""
+    match = re.search(r"\d{3,5}K", str(text))
+    return match.group(0) if match else ""
+
+# -------------------------
+# SHORT DESCRIPTION
+# -------------------------
 def build_short_desc(row):
+
     cat = safe(row["Categoria Articolo"])
     fam = safe(row["Famiglia Articolo"])
     color = safe(row["Colore Rosone"])
     fin = safe(row["Finitura"])
     mat = safe(row["Materiale"])
     att = safe(row["Attacco Portalampada"])
-    feat = ""
 
-    # feature principale
     watt = safe(row["Watt"])
     ip = safe(row["IP"])
-    dim = safe(row["Dimmer"])
+    dimmer = safe(row.get("Dimmer", ""))
     luci = safe(row["Luci"])
+
+    color_temp = extract_color_temp(row.get("Descrizione", ""))
+
+    feat = ""
 
     if watt:
         feat = watt
     elif ip:
         feat = ip
-    elif dim:
+    elif dimmer:
         feat = "dimmerabile"
     elif luci and luci != "0":
         feat = f"{luci} luci"
+
+    if color_temp:
+        feat = f"{feat} {color_temp}".strip()
 
     identity = color or fin or mat
 
@@ -69,9 +83,20 @@ def build_short_desc(row):
         feat
     ]
 
-    return clean_join(parts)
+    short = clean_join(parts)
 
+    # Lampadina inclusa
+    lamp = safe(row.get("LampadinaInclusa", "")).lower()
+    if lamp in ["si", "sì", "yes"]:
+        short += " lampadina inclusa"
+
+    return short
+
+# -------------------------
+# DESCRIPTION
+# -------------------------
 def build_description(row):
+
     desc2 = safe(row["Descrizione 2"])
     desc = safe(row["Descrizione"])
 
@@ -91,6 +116,8 @@ def build_description(row):
     ip = safe(row["IP"])
     classe = safe(row["Classe"])
 
+    color_temp = extract_color_temp(row.get("Descrizione", ""))
+
     if dim:
         parts.append(f"di dimensioni {dim}")
     if att:
@@ -108,8 +135,18 @@ def build_description(row):
     if classe:
         parts.append(f"Classe {classe}")
 
+    if color_temp:
+        parts.append(f"temperatura colore {color_temp}")
+
+    lamp = safe(row.get("LampadinaInclusa", "")).lower()
+    if lamp in ["si", "sì", "yes"]:
+        parts.append("lampadina inclusa")
+
     return clean_join(parts)
 
+# -------------------------
+# TAGS
+# -------------------------
 def build_tags(row):
     return clean_lower_tags([
         row["Categoria Articolo"],
@@ -123,7 +160,11 @@ def build_tags(row):
         row["IP"]
     ])
 
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 def build_attributes(row):
+
     mapping = {
         "Attacco Portalampada": "Attacco",
         "Luci": "Luci",
@@ -154,32 +195,37 @@ def build_attributes(row):
             })
             i += 1
 
+    # Temperatura colore
+    color_temp = extract_color_temp(row.get("Descrizione", ""))
+    if color_temp:
+        attrs.append({
+            f"Attribute {i} name": "Temperatura Colore",
+            f"Attribute {i} value(s)": color_temp,
+            f"Attribute {i} visible": 1,
+            f"Attribute {i} global": 1
+        })
+        i += 1
+
+    # Lampadina inclusa
+    lamp = safe(row.get("LampadinaInclusa", "")).lower()
+    if lamp in ["si", "sì", "yes"]:
+        attrs.append({
+            f"Attribute {i} name": "Lampadina inclusa",
+            f"Attribute {i} value(s)": "Si",
+            f"Attribute {i} visible": 1,
+            f"Attribute {i} global": 1
+        })
+
     return attrs
 
+# -------------------------
+# IMAGES / STOCK / PRICE
+# -------------------------
 def build_images(row):
     return safe(row["Indirizzo Immagine"])
 
-def build_short_html_with_docs(row, short_text):
-    scheda = safe(row["Indirizzo Scheda Tecnica"])
-    cert = safe(row["Indirizzo Certificazione"])
-
-    html = short_text
-
-    if scheda or cert:
-        html += "<br><b>Specifiche tecniche:</b><ul>"
-
-        if scheda:
-            html += f'<li><a href="{scheda}" target="_blank" rel="noopener">Scheda tecnica prodotto (PDF)</a></li>'
-        if cert:
-            html += f'<li><a href="{cert}" target="_blank" rel="noopener">Scheda sicurezza (PDF)</a></li>'
-
-        html += "</ul>"
-
-    return html
-
-
 # -------------------------
-# MAIN PROCESS
+# PROCESS
 # -------------------------
 if file:
 
@@ -203,7 +249,21 @@ if file:
         tags = build_tags(row)
         img = build_images(row)
 
-        short_html = build_short_html_with_docs(row, short)
+        lamp = safe(row.get("LampadinaInclusa", "")).lower()
+
+        short_html = short
+
+        # SHORT HTML + eventuali documenti
+        scheda = safe(row["Indirizzo Scheda Tecnica"])
+        cert = safe(row["Indirizzo Certificazione"])
+
+        if scheda or cert:
+            short_html += "<br><b>Specifiche tecniche:</b><ul>"
+            if scheda:
+                short_html += f'<li><a href="{scheda}" target="_blank" rel="noopener">Scheda tecnica prodotto (PDF)</a></li>'
+            if cert:
+                short_html += f'<li><a href="{cert}" target="_blank" rel="noopener">Scheda sicurezza (PDF)</a></li>'
+            short_html += "</ul>"
 
         base = {
             "SKU": sku,
@@ -220,15 +280,14 @@ if file:
 
         attrs = build_attributes(row)
 
-        if attrs:
-            for a in attrs:
-                base.update(a)
+        for a in attrs:
+            base.update(a)
 
         output_rows.append(base)
 
     out_df = pd.DataFrame(output_rows)
 
-    st.success("✔ Generazione completata")
+    st.success("✔ File WooCommerce generato con successo")
 
     st.dataframe(out_df.head())
 
