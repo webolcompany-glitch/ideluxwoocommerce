@@ -35,7 +35,7 @@ def clean_lower_tags(parts):
     return ", ".join(out)
 
 # -------------------------
-# DESCRIPTION LUNGA
+# DESCRIPTION
 # -------------------------
 def build_description(row):
 
@@ -179,10 +179,11 @@ if file:
     for _, row in df.iterrows():
 
         sku = safe(row["Nr"])
-        name = build_description(row).title()
 
-        short = build_description(row)
+        name = build_description(row).title()
         desc = build_description(row)
+        short = build_description(row)
+
         tags = build_tags(row)
         img = build_images(row)
 
@@ -190,6 +191,8 @@ if file:
 
         base = {
             "SKU": sku,
+            "EAN": sku,
+            "Marca": "Ideal Lux",
             "Name": name,
             "Categories": safe(row["Categoria Articolo"]),
             "Tags": tags,
