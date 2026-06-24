@@ -36,15 +36,13 @@ def clean_lower_tags(parts):
 
 def extract_kelvin(text):
     text = safe(text).upper()
-
     for k in ["2700K", "3000K", "3500K", "4000K", "5000K", "6000K"]:
         if k in text:
             return k
-
     return ""
 
 # -------------------------
-# DESCRIPTION
+# DESCRIPTION TECNICA
 # -------------------------
 def build_description(row):
 
@@ -81,7 +79,7 @@ def build_description(row):
     return clean_join(parts)
 
 # -------------------------
-# SHORT DESCRIPTION + DOCUMENTI
+# SHORT + PDF
 # -------------------------
 def build_short_html_with_docs(row, short_text):
 
@@ -125,7 +123,7 @@ def build_tags(row):
     ])
 
 # -------------------------
-# ATTRIBUTI WOOCOMMERCE
+# ATTRIBUTI
 # -------------------------
 def build_attributes(row):
 
@@ -188,16 +186,18 @@ if file:
 
         sku = safe(row["Nr"])
 
+        gruppo = safe(row["Gruppo Prodotto"])
         base_desc = build_description(row)
+
         kelvin = extract_kelvin(row.get("Descrizione", ""))
 
         # -------------------------
-        # NAME
+        # NAME (CORRETTO)
         # -------------------------
         if kelvin:
-            name = f"{base_desc} {kelvin}".title()
+            name = f"{gruppo} {sku} {kelvin}"
         else:
-            name = base_desc.title()
+            name = f"{gruppo} {sku}"
 
         # -------------------------
         # DESCRIPTION
