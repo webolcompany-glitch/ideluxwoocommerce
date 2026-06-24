@@ -12,7 +12,7 @@ st.title("🛒 WooCommerce Product Generator")
 file = st.file_uploader("Carica file CSV o Excel", type=["csv", "xlsx"])
 
 # -------------------------
-# FUNZIONI UTILI
+# UTILS
 # -------------------------
 
 def safe(val):
@@ -33,6 +33,15 @@ def clean_lower_tags(parts):
                 seen.add(t)
                 out.append(t)
     return ", ".join(out)
+
+def extract_kelvin(text):
+    text = safe(text).upper()
+
+    for k in ["2700K", "3000K", "3500K", "4000K", "5000K", "6000K"]:
+        if k in text:
+            return k
+
+    return ""
 
 # -------------------------
 # DESCRIPTION
@@ -72,7 +81,7 @@ def build_description(row):
     return clean_join(parts)
 
 # -------------------------
-# SHORT DESCRIPTION + PDF
+# SHORT DESCRIPTION + DOCUMENTI
 # -------------------------
 def build_short_html_with_docs(row, short_text):
 
@@ -80,7 +89,6 @@ def build_short_html_with_docs(row, short_text):
     cert = safe(row.get("Indirizzo Certificazione", ""))
 
     html = short_text
-
     links = []
 
     if scheda:
@@ -180,9 +188,26 @@ if file:
 
         sku = safe(row["Nr"])
 
-        name = build_description(row).title()
-        desc = build_description(row)
-        short = build_description(row)
+        base_desc = build_description(row)
+        kelvin = extract_kelvin(row.get("Descrizione", ""))
+
+        # -------------------------
+        # NAME
+        # -------------------------
+        if kelvin:
+            name = f"{base_desc} {kelvin}".title()
+        else:
+            name = base_desc.title()
+
+        # -------------------------
+        # DESCRIPTION
+        # -------------------------
+        if kelvin:
+            desc = f"{base_desc} ({kelvin})"
+        else:
+            desc = base_desc
+
+        short = base_desc
 
         tags = build_tags(row)
         img = build_images(row)
