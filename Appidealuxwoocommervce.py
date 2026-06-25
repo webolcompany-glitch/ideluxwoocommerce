@@ -130,6 +130,7 @@ def build_attributes(row):
     fields = [
         "Attacco Portalampada",
         "Luci",
+        "LampadinaInclusa",
         "Reattore",
         "Trasformatore",
         "Volt",
@@ -150,14 +151,32 @@ def build_attributes(row):
 
         val = safe(row.get(field, ""))
 
-        if val:
-            attrs.append({
-                f"Attribute {i} name": field,
-                f"Attribute {i} value(s)": val,
-                f"Attribute {i} visible": 1,
-                f"Attribute {i} global": 0
-            })
-            i += 1
+        # Se il valore è vuoto non crea l'attributo
+        if not val:
+            continue
+
+        if field == "LampadinaInclusa":
+
+            val_norm = val.strip().lower()
+
+            if val_norm in ["si", "sì", "yes", "y", "1", "true"]:
+                val = "Inclusa"
+            elif val_norm in ["no", "n", "0", "false"]:
+                val = "Non inclusa"
+
+            attr_name = "Lampadina Inclusa"
+
+        else:
+            attr_name = field
+
+        attrs.append({
+            f"Attribute {i} name": attr_name,
+            f"Attribute {i} value(s)": val,
+            f"Attribute {i} visible": 1,
+            f"Attribute {i} global": 0
+        })
+
+        i += 1
 
     return attrs
 
