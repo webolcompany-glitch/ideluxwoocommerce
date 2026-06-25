@@ -187,17 +187,22 @@ if file:
         sku = safe(row["Nr"])
 
         gruppo = safe(row["Gruppo Prodotto"])
+        famiglia = safe(row["Famiglia Articolo"])
+
         base_desc = build_description(row)
 
         kelvin = extract_kelvin(row.get("Descrizione", ""))
 
         # -------------------------
-        # NAME (CORRETTO)
+        # NAME
+        # Ideal Lux + Gruppo Prodotto + Famiglia Articolo + Kelvin
         # -------------------------
-        if kelvin:
-            name = f"{gruppo} {sku} {kelvin}"
-        else:
-            name = f"{gruppo} {sku}"
+        name = clean_join([
+            "Ideal Lux",
+            gruppo,
+            famiglia,
+            kelvin
+        ])
 
         # -------------------------
         # DESCRIPTION
